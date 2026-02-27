@@ -4,20 +4,63 @@
 
 A YCSB (Yahoo! Cloud Serving Benchmark) client that sends GET/SET workloads to a key-value server over a simple TCP text protocol.
 
-## Protocol
+## Server Requirements
 
-The server must implement the following line-based text protocol:
+This section defines what a server must implement to be benchmarked by ycsb-client.
+
+### Connection model
+
+- The server must accept TCP connections on a configured address.
+- Each worker goroutine opens **one persistent TCP connection** at startup and reuses it for the entire 10-second benchmark. The server must **not** close the connection between requests.
+- The client sends requests **one at a time per connection** (no pipelining): it sends a request, waits for the response, then sends the next request. The server therefore processes requests sequentially within a single connection.
+- Multiple workers run concurrently, so the server must handle **N simultaneous connections** where N is the `--workers` count.
+
+### Wire format
+
+All messages are **UTF-8 plain text**, one message per line, terminated by `\n` (LF only, not CRLF).
+
+**SET request** (write):
 
 ```
-# Write
-Client → Server:  SET key value\n
-Server → Client:  OK\n
-
-# Read
-Client → Server:  GET key\n
-Server → Client:  OK value\n   (key found)
-                  ERR\n         (key not found or error)
+SET <key> <value>\n
 ```
+
+- `<key>`: alphanumeric string, no spaces (e.g. `k0`, `k42`)
+- `<value>`: 100-byte alphanumeric string, no spaces
+
+The server must store the key-value pair and reply **exactly**:
+
+```
+OK\n
+```
+
+**GET request** (read):
+
+```
+GET <key>\n
+```
+
+The server must reply **exactly one of**:
+
+```
+OK <value>\n    ← key exists: "OK" + one space + the stored value
+ERR\n           ← key does not exist, or any error
+```
+
+> **Important:** Only requests that receive `OK` are counted toward throughput and latency. `ERR` responses are silently skipped. For YCSB-C (read-only workload), the store must be pre-populated before the benchmark, otherwise all GETs will return `ERR` and throughput will be zero.
+
+### Summary table
+
+| Scenario | Client sends | Server must reply |
+|---|---|---|
+| Write | `SET k value\n` | `OK\n` |
+| Read (hit) | `GET k\n` | `OK value\n` |
+| Read (miss) | `GET k\n` | `ERR\n` |
+| Any error | — | `ERR\n` |
+
+### Reference implementation
+
+`test-server/` contains a minimal single-node in-memory KV server that satisfies this protocol. Use it as a reference when implementing the server side in your own distributed system.
 
 ## Workloads
 
