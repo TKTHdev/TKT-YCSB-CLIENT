@@ -1,3 +1,5 @@
+[English](README.md) | **日本語**
+
 # ycsb-client
 
 YCSB (Yahoo! Cloud Serving Benchmark) ワークロードを TCP テキストプロトコルでキーバリューサーバーに送信するベンチマーククライアント。

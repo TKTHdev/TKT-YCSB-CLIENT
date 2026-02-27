@@ -1,3 +1,5 @@
+**English** | [日本語](README.ja.md)
+
 # ycsb-client
 
 A YCSB (Yahoo! Cloud Serving Benchmark) client that sends GET/SET workloads to a key-value server over a simple TCP text protocol.
